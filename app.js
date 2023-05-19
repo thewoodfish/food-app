@@ -2,7 +2,7 @@
 import { createRequire } from "module";
 import path from 'path';
 import { fileURLToPath } from 'url';
-import api from 'samaritan-js-sdk';
+import {api, initSamDB } from 'samaritan-js-sdk';
 
 // imports
 const require = createRequire(import.meta.url);
@@ -12,6 +12,10 @@ const __dirname = path.dirname(__filename);
 const express = require('express');
 const app = express();
 const port = 4000;
+
+// connect to the database
+const wsEndpoint = 'ws://127.0.0.1:8888';
+initSamDB(wsEndpoint);
 
 // app config
 const config = {
@@ -52,8 +56,9 @@ app.post('/signin', (req, res) => {
 async function signUpUser(req, res) {
     // first check that the DID exists on the network (without password importance)
     await api.did.auth(config, { sam_did: req.did, password: "null" }, async function (_) {
-        await api.db.get(config, { app_did, sam_did: "", keys: ["auth"] }, async function (data) {
-            const new_data = typeof JSON.parse(JSON.parse(data["1"])[0]) === 'object' ? JSON.parse(JSON.parse(data["1"])[0]) : {};
+        await api.db.get(config, { app_did: config.did, sam_did: "", keys: ["auth"] }, async function (data) {
+            console.log(data);
+            const new_data = data.output[0] ? JSON.parse(data.output[0]) : {};
             const entry = {
                 password: req.password
             };
@@ -64,7 +69,7 @@ async function signUpUser(req, res) {
             } else {
                 new_data[req.did] = entry;
                 // save the modified data
-                await api.db.insert(config, { app_did, sam_did: "", keys: ["auth"], values: [JSON.stringify(new_data)] }, function (response) {
+                await api.db.insert(config, { app_did: config.did, sam_did: "", keys: ["auth"], values: [JSON.stringify(new_data)] }, function (response) {
                     res.status(200).send({ error: false, data: "Sign up successful" });
                 }, function (_) {
                     res.status(403).send({ error: true, data: "Could not sign you up" });
@@ -81,18 +86,13 @@ async function signUpUser(req, res) {
 async function signInUser(req, res) {
     // first check that the DID exists on the network (without password importance)
     await api.did.auth(config, { sam_did: req.did, password: "null" }, async function (_) {
-        await api.db.get(config, { app_did, sam_did: "", keys: ["auth"] }, async function (data) {
-            const appData = typeof JSON.parse(JSON.parse(data["1"])[0]) === 'object' ? JSON.parse(JSON.parse(data["1"])[0]) : {};
+        await api.db.get(config, { app_did: config.did, sam_did: "", keys: ["auth"] }, async function (data) {
             // check for the password
-            let userData = appData[req.did];
-            if (userData) {
-                if (userData.password == req.password)
-                    res.status(200).send({ error: false, data: "Sign in successful!" });
-                else
-                    res.status(404).send({ error: true, data: "No user matched details provided" });
-            } else {
+            let userData = data.output[0] ? JSON.parse(data.output[0]) : {};
+            if (userData[req.did].password == req.password)
+                res.status(200).send({ error: false, data: "Sign in successful!" });
+            else
                 res.status(404).send({ error: true, data: "No user matched details provided" });
-            }
         }, function (_) {
             res.status(404).send({ error: true, data: "Could not sign you in" });
         });
