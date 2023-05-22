@@ -11,6 +11,10 @@ function qsa(val) {
     return document.querySelectorAll(val);
 }
 
+function clearField(attr) {
+    qs(attr).value = "";
+}
+
 function signal(message) {
     // create the alert element
     var alert = document.createElement("div");
@@ -98,6 +102,34 @@ document.body.addEventListener("click", (e) => {
                 })
         } else
             signal("Please fill in all input details");
+    } else if (e.classList.contains("add-menu-btn")) {
+        let name = qs(".snack-name");
+        let info = qs(".snack-info");
+        let price = qs(".snack-price");
+
+        if (name.value && info.value && price.value) {
+            // send request to server
+            fetch("/add-snack", {
+                method: 'post',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: name.value,
+                    info: info.value,
+                    price: price.value
+                })
+            })
+                .then(async res => {
+                    await res.json().then(res => {
+                        clearField(".snack-name");
+                        clearField(".snack-info");
+                        clearField(".snack-price");
+                        signal(res.data);
+                    });
+                })
+        } else
+            signal("Please fill in all input details");
     }
 }, false);
 
@@ -105,9 +137,9 @@ if (window.location.pathname != "/login") {
     // get the session user
     const session_user = sessionStorage["sess_user"];
     if (session_user) {
-        switch  (window.location.pathname) {
+        switch (window.location.pathname) {
             case "/": {
-                // first check that a user is logged in
+
             }
         }
     } else {
